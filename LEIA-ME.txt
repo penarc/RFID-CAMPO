@@ -1,0 +1,32 @@
+RFID Campo Atvos - app do celular (funciona sem internet)
+
+O QUE E
+App instalavel (PWA) para registrar ativo, TAG RFID, observacao e fotos no campo.
+Nao depende do Claude. Guarda tudo no aparelho e leva para o computador por um arquivo ZIP.
+A pasta NAO contem dados da empresa (so o app e o logo). A lista de ativos e carregada a parte.
+
+PUBLICAR (uma vez, feito por quem administra)
+Hospede estes 5 arquivos juntos, na mesma pasta, em um endereco HTTPS:
+  index.html, manifest.webmanifest, sw.js, icon-192.png, icon-512.png
+Opcoes: servidor/intranet da Atvos (TI), Azure Static Web Apps, Firebase Hosting,
+Cloudflare Pages, Netlify ou GitHub Pages. O HTTPS e obrigatorio para instalar e funcionar offline.
+
+INSTALAR NO CELULAR (Android, Chrome)
+1) Abrir o endereco do app com internet, uma vez.
+2) Menu do Chrome (3 pontos) > "Instalar app" ou "Adicionar a tela inicial".
+3) Informar o nome e carregar o arquivo lista_ativos_campo.json (enviado pelo coordenador).
+Depois disso o app abre e funciona sem internet.
+
+LISTA DE ATIVOS
+No app Inventario RFID (computador): Importar e carga > "Exportar lista de ativos para o celular (JSON)".
+Enviar o arquivo por Teams/WhatsApp/e-mail. No celular: aba Geral > "Atualizar lista".
+Os registros ja feitos no aparelho sao mantidos.
+
+LEVAR OS REGISTROS PARA O COMPUTADOR
+No celular: aba Enviados > "Compartilhar ZIP" (ou "Baixar ZIP no aparelho").
+Enviar o ZIP ao coordenador. No Inventario RFID: Importar e carga > "Importar registros do celular (ZIP)".
+Importar o mesmo ZIP duas vezes nao duplica as fotos.
+
+OBSERVACOES
+- Os dados ficam so no aparelho ate o ZIP ser enviado. Nao limpe os dados do Chrome antes de exportar.
+- A marca d'agua (hora, data, usina e TAG) e gravada na foto ao salvar o registro.
