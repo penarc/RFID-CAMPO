@@ -192,22 +192,29 @@ function render(){
 S._q=[];
 
 const locais=()=>Object.values(S.reg).filter(r=>!r.remoto);
-function pendentes(){return porData(locais().filter(r=>(!S.usina||r.usina===S.usina)&&(!S.onlyNew||(r.ts||0)>(r.exportadoEm||0))))}
-function exportHTML(n){const tot=locais().filter(r=>!S.usina||r.usina===S.usina).length;if(!tot)return '';const p=pendentes().length;
-  return `<div class="card" style="margin-top:0"><label class="l">Levar para o computador por arquivo (sem login)</label>
-  <label class="ntl" style="margin:0 0 8px"><input type="checkbox" id="solonovos" ${S.onlyNew?'checked':''}> Só o que ainda não foi exportado (${locais().filter(r=>(!S.usina||r.usina===S.usina)&&(r.ts||0)>(r.exportadoEm||0)).length})</label>
+const modoServ=()=>!!(SESS&&S.admin);
+const baseExp=()=>modoServ()?Object.values(S.reg):locais();
+const marcaExp=r=>modoServ()?(r.baixadoEm||0):(r.exportadoEm||0);
+function pendentes(){return porData(baseExp().filter(r=>(!S.usina||r.usina===S.usina)&&(!S.onlyNew||(r.ts||0)>marcaExp(r))))}
+function exportHTML(n){if(SESS&&!S.admin)return '';const tot=baseExp().filter(r=>!S.usina||r.usina===S.usina).length;if(!tot)return '';const p=pendentes().length,sv=modoServ();
+  return `<div class="card" style="margin-top:0"><label class="l">${sv?'Baixar do servidor (coordenador)':'Levar para o computador por arquivo (sem login)'}</label>
+  <label class="ntl" style="margin:0 0 8px"><input type="checkbox" id="solonovos" ${S.onlyNew?'checked':''}> Só o que ainda não foi ${sv?'baixado':'exportado'} (${baseExp().filter(r=>(!S.usina||r.usina===S.usina)&&(r.ts||0)>marcaExp(r)).length})</label>
   <button class="save" id="shr" ${S.exp||!p?'disabled':''}>${S.exp||'Compartilhar ZIP ('+p+')'}</button>
   <button class="del" id="exp" style="border-color:var(--line);color:var(--ink)" ${S.exp||!p?'disabled':''}>Baixar ZIP no aparelho</button>
-  <div class="hint">Gera um arquivo com os registros e as fotos com marca d'água. Envie por Teams, WhatsApp, e-mail ou OneDrive. No app Inventário RFID: Importar e carga › Importar registros do celular.</div></div>`}
+  <div class="hint">${sv?'Junta os registros de toda a equipe e as fotos que estão no servidor, no mesmo formato do arquivo do celular. Use os filtros de usina e data acima. No app Inventário RFID: Importar e carga › Importar registros do celular.':'Gera um arquivo com os registros e as fotos com marca d\'água. Envie por Teams, WhatsApp, e-mail ou OneDrive. No app Inventário RFID: Importar e carga › Importar registros do celular.'}</div></div>`}
 async function exportar(compartilhar){
-  const R=pendentes();if(!R.length)return;
+  const sv=modoServ();if(sv){S.exp='Atualizando do servidor…';render();await sincronizar();S.exp=''}
+  const R=pendentes();if(!R.length){render();return}
   if(!window.JSZip){toast('Biblioteca de ZIP não carregou. Recarregue a página.');return}
-  const zip=new JSZip(),regs=[];let nf=0;
+  const zip=new JSZip(),regs=[];let nf=0,falhou=0;
   try{
-   for(const [i,r] of R.entries()){S.exp=`Preparando ${i+1} de ${R.length}…`;render();
+   for(const [i,r] of R.entries()){S.exp=`${sv?'Baixando':'Preparando'} ${i+1} de ${R.length}…`;render();
     const a=BYID.get(r.id)||{};const base=`${a.u}_${a.imob}_${a.sub}`;const dup=a.imob&&r.id!==base?+r.id.slice(base.length+1)||1:1;
     const fotos=[];
-    for(const f of (r.fotos||[])){if(!f.blob)continue;const arq=`fotos/${r.usina}/${f.nome}`;zip.file(arq,f.blob);fotos.push({nome:f.nome,ts:f.ts||r.ts,arquivo:arq});nf++}
+    for(const f of (r.fotos||[])){let b=f.blob;
+      if(!b&&sv&&f.path){try{const q=await sb(`/storage/v1/object/authenticated/${SB.bucket}/${segPath(f.path)}`);b=await q.blob();if(!/^image\//.test(b.type))throw 0}catch(e){if(e instanceof Fora)throw e;b=null}}
+      if(!b){falhou++;continue}
+      const arq=`fotos/${r.usina}/${f.nome}`;zip.file(arq,b);fotos.push({nome:f.nome,ts:f.ts||r.ts,arquivo:arq});nf++}
     regs.push({id:r.id,u:r.usina,imob:r.imob,sub:r.sub,inv:a.inv||r.inv||'',dup,tag:r.tag||'',nt:!!r.nt,mot:r.mot||'',obs:r.obs||'',por:r.por||'',ts:r.ts,dia:r.dia,fotos});}
    zip.file('registros.json',JSON.stringify({versao:1,geradoEm:Date.now(),geradoPor:S.user,registros:regs}));
    S.exp='Compactando…';render();
@@ -217,9 +224,9 @@ async function exportar(compartilhar){
    const file=new File([blob],nome,{type:'application/zip'});let feito=false;
    if(compartilhar&&navigator.canShare&&navigator.canShare({files:[file]})){try{await navigator.share({files:[file],title:'RFID Campo',text:'Registros de campo '+nome});feito=true}catch(e){if(e&&e.name==='AbortError'){render();return}}}
    if(!feito){const u=URL.createObjectURL(blob),l=document.createElement('a');l.href=u;l.download=nome;document.body.appendChild(l);l.click();l.remove();setTimeout(()=>URL.revokeObjectURL(u),60000);feito=true}
-   const agora=Date.now();for(const r of R){r.exportadoEm=agora;await idbPut('registros',r)}
-   render();toast(`Arquivo ${nome}: ${R.length} registros, ${nf} fotos.`);
-  }catch(e){S.exp='';render();toast('Não foi possível exportar: '+((e&&e.message)||'erro'))}
+   const agora=Date.now();for(const r of R){if(sv)r.baixadoEm=agora;else r.exportadoEm=agora;await idbPut('registros',r)}
+   render();toast(`Arquivo ${nome}: ${R.length} registros, ${nf} fotos.`+(falhou?` ${falhou} foto(s) não baixaram; tente de novo.`:''));
+  }catch(e){S.exp='';render();toast(e instanceof Fora?'Entre de novo para baixar do servidor':'Não foi possível exportar: '+((e&&e.message)||'erro'))}
 }
 function geralHTML(){const T=resumo(S.usina),base=IDX.filter(a=>(!S.usina||a.u===S.usina)&&a.tipo==='B').length,comp=T.tot-base,TT=resumo('');
   const card=(k,n,v,sub)=>`<button class="kpi" data-gs="${k}" data-gu="${S.usina}"><span>${n}</span><b class="num">${v.toLocaleString('pt-BR')}</b><i>${sub}</i></button>`;
@@ -265,7 +272,7 @@ function desenharSheet(){
    <div class="card"><label class="l" for="ob">Observação (opcional)</label><textarea id="ob" class="obs" rows="3" maxlength="500" placeholder="Ex.: plaqueta danificada, ativo não localizado, local diferente da base">${esc(s.obs)}</textarea></div>
    <div class="card"><label class="l">Fotos (${s.fotos.length})</label><div class="fotos">${fotos}</div>
    <label class="cam"><input type="file" id="cam" accept="image/*" capture="environment" multiple>${s.fotos.length?'Tirar outra foto':'Tirar foto'}</label>
-   <div class="hint">Arquivo: ${esc(nomeFoto(a,s.tag,s.fotos.length+1))}</div><div class="hint">A hora, a data e a TAG são impressas na foto ao salvar.</div>${mud}${s.semFoto?`<div class="warn">As fotos deste registro estão na nuvem e não foram baixadas. Para alterar, conecte-se à internet, entre com seu login e abra o registro de novo.</div>`:''}</div></div>
+   <div class="hint">Arquivo: ${esc(nomeFoto(a,s.tag,s.fotos.length+1))}</div><div class="hint">A hora, a data e a TAG são impressas na foto ao salvar.</div>${mud}${s.semFoto?`<div class="warn">${SESS&&!S.admin?'Este registro foi feito por outra pessoa e as fotos ficam no servidor. Só o coordenador pode baixá-las ou alterar este registro.':'As fotos deste registro estão no servidor e não foram baixadas. Para alterar, conecte-se à internet, entre com seu login e abra o registro de novo.'}</div>`:''}</div></div>
    <div class="bar"><div><button class="save" id="sv" ${trava(s)?'disabled':''}>${s.ex?'Salvar alterações':'Salvar registro'}</button>${s.ex?`<button class="del" id="ap">${s.conf?'Confirmar: apagar este registro':'Apagar registro'}</button>`:''}</div></div>`;
   $('#vol').onclick=fechar;
   const tg=$('#tg');tg.oninput=()=>{s.tag=tg.value.replace(/\D/g,'').slice(0,8);tg.value=s.tag;checarDup();const h=document.querySelector('.hint:last-of-type');$('#sv').disabled=trava(s)};
