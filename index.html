@@ -120,7 +120,7 @@ const $=s=>document.querySelector(s);
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const norm=s=>String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
 const ls={get(k,d){try{return localStorage.getItem(k)??d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,v)}catch(e){}}};
-const S={tela:'',exp:'',metaLista:null,onlyNew:true,usina:ls.get('rc_usina','UAE'),user:ls.get('rc_user',''),q:'',fs:'',fa:'',st:'',tab:'geral',fnt:'',d1:'',d2:'',lim:40,reg:{},db:null,assets:null,sel:null,erro:''};
+const S={tela:'',listaSt:'',admin:ls.get('rc_admin','')==='1',exp:'',metaLista:null,onlyNew:true,usina:ls.get('rc_usina','UAE'),user:ls.get('rc_user',''),q:'',fs:'',fa:'',st:'',tab:'geral',fnt:'',d1:'',d2:'',lim:40,reg:{},db:null,assets:null,sel:null,erro:''};
 let IDX=[],BYID=new Map();
 function montar(rows){BASE=rows;IDX=rows.map(r=>({id:r[0],u:r[1],imob:r[2],sub:r[3],den:r[4],inv:r[5],loc:r[6],setor:r[7],area:r[9],tipo:r[10],foto0:!!r[11],tag:/^\d+$/.test(r[8])?r[8]:'',nt:r[8]==='NT',_s:norm([r[2],r[4],r[5],r[6],r[7],r[9]].join(' '))}));BYID=new Map(IDX.map(a=>[a.id,a]))}
 /* ---- armazenamento no aparelho (IndexedDB) ---- */
@@ -229,12 +229,14 @@ function geralHTML(){const T=resumo(S.usina),base=IDX.filter(a=>(!S.usina||a.u==
   <div class="bar2" aria-hidden="true"><i style="width:${pc(T.conc,T.tot)}"></i></div>
   <div class="meta">Por usina · toque numa linha para ver os números dela acima</div>
   <div class="tw"><table class="tb"><thead><tr><th>Usina</th><td>Total</td><td>TAG</td><td>Sem TAG</td><td>NT</td><td>S/ foto</td><td>Concl.</td></tr></thead><tbody>${linhas}</tbody><tfoot><tr data-sel="" class="${S.usina?'':'sel'}"><th>Todas</th><td>${TT.tot}</td><td>${TT.tag}</td><td>${TT.sem}</td><td>${TT.nt}</td><td>${TT.sf}</td><td><b>${pc(TT.conc,TT.tot)}</b></td></tr></tfoot></table></div>
-  <div class="card"><label class="l">Lista de ativos neste aparelho</label><div style="font-size:14px">${IDX.length.toLocaleString('pt-BR')} ativos${S.metaLista&&S.metaLista.geradoEm?' · gerada em '+new Date(S.metaLista.geradoEm).toLocaleDateString('pt-BR'):''}. Os números acima contam a lista mais o que foi registrado neste aparelho.</div><label class="cam" style="margin-top:10px"><input type="file" id="lf2" accept=".json,application/json">Atualizar lista</label></div>`}
+  <div class="card"><label class="l">Lista de ativos neste aparelho</label><div style="font-size:14px">${IDX.length.toLocaleString('pt-BR')} ativos${S.metaLista&&S.metaLista.geradoEm?' · gerada em '+new Date(S.metaLista.geradoEm).toLocaleDateString('pt-BR'):''}. ${SESS?' A lista chega pela nuvem e é atualizada sozinha.':''} Os números acima contam a lista mais os registros${SESS?' da equipe':' deste aparelho'}.</div>${!SESS||S.admin?`<label class="cam" style="margin-top:10px"><input type="file" id="lf2" accept=".json,application/json">${SESS&&S.admin?'Atualizar lista e publicar para a equipe':'Atualizar lista'}</label>`:''}</div>`}
 
-function telaLista(msg){$('#app').innerHTML=`<header><div class="marca"><img class="logo" src="${LOGO}" alt="Atvos"><h1>RFID Campo</h1></div></header><div class="card"><label class="l" for="lf">Lista de ativos</label><p style="margin:0 0 10px">Antes de começar, carregue o arquivo da lista de ativos (.json) que o coordenador enviou. Isso é feito uma vez e funciona sem internet.</p><input class="search" type="file" id="lf" accept=".json,application/json">${msg?`<div class="warn">${esc(msg)}</div>`:''}</div>`;$('#lf').onchange=e=>carregarLista(e.target.files[0])}
+function telaLista(msg){$('#app').innerHTML=`<header><div class="marca"><img class="logo" src="${LOGO}" alt="Atvos"><h1>RFID Campo</h1></div></header><div class="card"><label class="l" for="lf">Lista de ativos</label>${SESS&&S.listaSt==='baixando'?`<p style="margin:0 0 10px"><b>Baixando a lista de ativos da equipe…</b> Aguarde, isso é feito uma vez e depois funciona sem internet.</p>`:`<p style="margin:0 0 10px">${SESS?(S.listaSt==='nenhuma'?'Ainda não há lista publicada na nuvem. ':S.listaSt==='erro'?'Não foi possível baixar a lista da nuvem. Verifique a internet e toque em sincronizar, ou ':''):''}Carregue o arquivo da lista de ativos (.json) que o coordenador enviou. Isso é feito uma vez e funciona sem internet.</p>`}${SESS?`<button class="sy" id="bl" style="margin:0 0 10px">Baixar a lista da nuvem de novo</button>`:''}<input class="search" type="file" id="lf" accept=".json,application/json">${msg?`<div class="warn">${esc(msg)}</div>`:''}</div>`;$('#lf').onchange=e=>carregarLista(e.target.files[0]);const bl=$('#bl');if(bl)bl.onclick=()=>sincronizar()}
 async function carregarLista(f){if(!f)return;
   try{const j=JSON.parse(await f.text()),rows=Array.isArray(j)?j:j.ativos;if(!Array.isArray(rows)||!rows.length||!Array.isArray(rows[0])||rows[0].length<10)throw new Error('arquivo não parece uma lista de ativos');
-    await idbPut('meta',{rows,geradoEm:j.geradoEm||Date.now(),n:rows.length,carregadoEm:Date.now()},'lista');montar(rows);S.metaLista={geradoEm:j.geradoEm||Date.now(),n:rows.length};toast(rows.length.toLocaleString('pt-BR')+' ativos carregados');render()}
+    const ger=j.geradoEm||Date.now();let id=null,pub='';
+    if(SESS&&S.admin){toast('Publicando a lista para a equipe…');try{const r=await sbJson('/rest/v1/lista_ativos?select=id',{method:'POST',headers:{Prefer:'return=representation'},json:{gerado_em:ger,n:rows.length,fonte:j.fonte||f.name||'',dados:{versao:j.versao||1,geradoEm:ger,fonte:j.fonte||f.name||'',ativos:rows}}});id=r[0].id;pub=' e publicados para a equipe'}catch(e){pub=', mas não foram publicados para a equipe ('+((e&&e.message)||'erro')+')'}}
+    await idbPut('meta',{rows,geradoEm:ger,n:rows.length,carregadoEm:Date.now(),id},'lista');montar(rows);S.metaLista={geradoEm:ger,n:rows.length,id};toast(rows.length.toLocaleString('pt-BR')+' ativos carregados'+pub);render()}
   catch(e){telaLista('Não foi possível ler a lista: '+(e.message||'erro'))}}
 /* ---- folha de registro ---- */
 function abrir(id){
@@ -345,7 +347,7 @@ async function salvar(){const s=S.sel,a=s.a;
 const SB={url:'https://jdajbszuymsyovgpcyro.supabase.co',key:'sb_publishable_pp122785ZkDm1ZgAMKsmSA_FwmHCB_W',bucket:'fotos'};
 const Y={on:false,msg:'',err:'',ult:0};
 let SESS=null;try{SESS=JSON.parse(ls.get('rc_sess','null'))}catch(e){}
-const salvaSess=s=>{SESS=s;ls.set('rc_sess',JSON.stringify(s))};
+const salvaSess=s=>{SESS=s;ls.set('rc_sess',JSON.stringify(s));if(!s){S.admin=false;ls.set('rc_admin','')}};
 class Fora extends Error{}
 async function sbAuth(grant,body){
   const r=await fetch(`${SB.url}/auth/v1/token?grant_type=${grant}`,{method:'POST',headers:{apikey:SB.key,'Content-Type':'application/json'},body:JSON.stringify(body)});
@@ -368,9 +370,9 @@ async function entrar(email,senha){
   catch(e){if(e instanceof TypeError)throw new Error('Sem conexão. O login precisa de internet.');
     if(e.code==='invalid_credentials'||e.status===400)throw new Error('E-mail ou senha incorretos.');throw new Error('Não foi possível entrar: '+e.message)}
   salvaSess({at:j.access_token,rt:j.refresh_token,exp:Date.now()+j.expires_in*1000,email:(j.user&&j.user.email)||email});
-  let eq;try{eq=await sbJson('/rest/v1/equipe?select=nome,ativo&limit=1')}catch(e){salvaSess(null);throw new Error('Não foi possível conferir seu acesso: '+(e.message||'erro'))}
+  let eq;try{eq=await sbJson('/rest/v1/equipe?select=nome,ativo,admin&limit=1')}catch(e){salvaSess(null);throw new Error('Não foi possível conferir seu acesso: '+(e.message||'erro'))}
   if(!eq.length||!eq[0].ativo){salvaSess(null);throw new Error('Este e-mail ainda não foi liberado na equipe. Fale com o coordenador.')}
-  S.user=eq[0].nome;ls.set('rc_user',S.user)}
+  S.user=eq[0].nome;ls.set('rc_user',S.user);S.admin=!!eq[0].admin;ls.set('rc_admin',S.admin?'1':'')}
 function telaLogin(msg){
   $('#app').innerHTML=`<header><div class="top"><div class="marca"><img class="logo" src="${LOGO}" alt="Atvos"><h1>RFID Campo</h1></div></div></header>
   <div class="card"><label class="l" for="em">E-mail</label><input class="search" id="em" type="email" inputmode="email" autocomplete="username" autocapitalize="none" spellcheck="false" value="${esc(S._em||'')}">
@@ -394,11 +396,26 @@ function txtSync(){const n=aEnviar().length;
   if(n)return[`${n} a enviar · toque para sincronizar`,true];
   return['Sincronizado com a equipe'+(Y.ult?' às '+new Date(Y.ult).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}):''),false]}
 function pintaSync(){const b=$('#sy');if(!b)return;const[t,al]=txtSync();b.textContent=t;b.className='sy'+(al?' al':'')}
+async function baixarLista(){
+  try{const eq=await sbJson('/rest/v1/equipe?select=admin&limit=1');if(eq.length){S.admin=!!eq[0].admin;ls.set('rc_admin',S.admin?'1':'')}}catch(e){if(e instanceof Fora)throw e}
+  const v=await sbJson('/rest/v1/lista_ativos?select=id,gerado_em,n&order=id.desc&limit=1');
+  if(!v.length){S.listaSt='nenhuma';return false}
+  const m=S.metaLista;if(m&&m.id===v[0].id){S.listaSt='';return false}
+  if(m&&!m.id&&(m.geradoEm||0)>v[0].gerado_em){S.listaSt='';return false}
+  S.listaSt='baixando';Y.msg='Baixando lista de ativos…';pintaSync();if(!IDX.length)render();
+  try{const d=await sbJson(`/rest/v1/lista_ativos?select=dados&id=eq.${v[0].id}`),j=d[0]&&d[0].dados,rows=j&&(Array.isArray(j)?j:j.ativos);
+    if(!Array.isArray(rows)||!rows.length||!Array.isArray(rows[0])||rows[0].length<10)throw new Error('lista inválida');
+    await idbPut('meta',{rows,geradoEm:v[0].gerado_em,n:rows.length,carregadoEm:Date.now(),id:v[0].id},'lista');
+    montar(rows);S.metaLista={geradoEm:v[0].gerado_em,n:rows.length,id:v[0].id};S.listaSt='';
+    toast((m?'Lista de ativos atualizada: ':'Lista de ativos recebida: ')+rows.length.toLocaleString('pt-BR')+' ativos');return true}
+  catch(e){S.listaSt='erro';throw e}}
 async function sincronizar(){
   if(Y.on||!SESS||!IDB)return;
   if(navigator.onLine===false){Y.err='Sem conexão';pintaSync();return}
   Y.on=true;Y.err='';Y.msg='Sincronizando…';pintaSync();let mudou=false,subst=0;
   try{
+    /* 0. lista de ativos central */
+    if(await baixarLista())mudou=true;
     /* 1. exclusões feitas neste aparelho */
     let ap=(await idbGet('meta','apagar'))||[];
     for(const id of [...ap]){const q=encodeURIComponent(id);
@@ -440,7 +457,8 @@ async function sincronizar(){
   }catch(e){Y.err=e instanceof Fora?'Entre de novo para sincronizar':(e instanceof TypeError?'Sem conexão':'Não sincronizou: '+((e&&e.message)||'erro'))}
   Y.on=false;Y.msg='';
   if(subst)toast(subst+' registro(s) seu(s) foram substituídos por versão mais nova da equipe');
-  if(mudou&&!['INPUT','SELECT','TEXTAREA'].includes((document.activeElement||{}).tagName))render();else pintaSync();
+  if(!IDX.length&&S.user&&!S.sel)render();
+  else if(mudou&&!['INPUT','SELECT','TEXTAREA'].includes((document.activeElement||{}).tagName))render();else pintaSync();
 }
 addEventListener('online',()=>sincronizar());
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)sincronizar()});
@@ -449,7 +467,7 @@ setInterval(()=>{if(!document.hidden)sincronizar()},60000);
 /* ---- inicialização ---- */
 (async()=>{
   render();
-  try{await abrirIDB();const l=await idbGet('meta','lista');if(l&&l.rows){montar(l.rows);S.metaLista={geradoEm:l.geradoEm,n:l.n}}
+  try{await abrirIDB();const l=await idbGet('meta','lista');if(l&&l.rows){montar(l.rows);S.metaLista={geradoEm:l.geradoEm,n:l.n,id:l.id||null}}
     const rs=await idbAll('registros');S.reg=Object.fromEntries(rs.map(r=>[r.id,r]));
     try{if(navigator.storage&&navigator.storage.persist)navigator.storage.persist()}catch(e){}
     sincronizar();
