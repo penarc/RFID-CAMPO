@@ -38,6 +38,8 @@ h1{font:700 22px/1 var(--f-num);letter-spacing:.06em;text-transform:uppercase;ma
 :root[data-theme="dark"] h1{color:var(--ink)}
 .marca{display:flex;align-items:center;gap:10px;min-width:0}.logo{height:30px;width:auto;background:#fff;border-radius:8px;padding:3px 7px;display:block}
 header::after{content:"";display:block;height:3px;margin-top:10px;border-radius:2px;background:linear-gradient(90deg,var(--brand),var(--steel))}
+.sy{display:block;width:100%;margin-top:8px;min-height:40px;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:10px;padding:8px 12px;font:600 13px var(--f-body);text-align:left}
+.sy.al{border-color:var(--brand-text);color:var(--brand-text)}
 .who{font-size:13px;color:var(--muted);background:none;border:0;padding:4px 0;text-decoration:underline}
 .chips{display:flex;gap:6px;overflow-x:auto;padding:10px 0 4px;scrollbar-width:none}
 .chip{flex:none;border:1px solid var(--line);background:var(--chip);color:var(--ink);font:600 15px var(--f-num);letter-spacing:.05em;padding:8px 13px;border-radius:99px;min-height:40px}
@@ -118,7 +120,7 @@ const $=s=>document.querySelector(s);
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const norm=s=>String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
 const ls={get(k,d){try{return localStorage.getItem(k)??d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,v)}catch(e){}}};
-const S={exp:'',metaLista:null,onlyNew:true,usina:ls.get('rc_usina','UAE'),user:ls.get('rc_user',''),q:'',fs:'',fa:'',st:'',tab:'geral',fnt:'',d1:'',d2:'',lim:40,reg:{},db:null,assets:null,sel:null,erro:''};
+const S={tela:'',exp:'',metaLista:null,onlyNew:true,usina:ls.get('rc_usina','UAE'),user:ls.get('rc_user',''),q:'',fs:'',fa:'',st:'',tab:'geral',fnt:'',d1:'',d2:'',lim:40,reg:{},db:null,assets:null,sel:null,erro:''};
 let IDX=[],BYID=new Map();
 function montar(rows){BASE=rows;IDX=rows.map(r=>({id:r[0],u:r[1],imob:r[2],sub:r[3],den:r[4],inv:r[5],loc:r[6],setor:r[7],area:r[9],tipo:r[10],foto0:!!r[11],tag:/^\d+$/.test(r[8])?r[8]:'',nt:r[8]==='NT',_s:norm([r[2],r[4],r[5],r[6],r[7],r[9]].join(' '))}));BYID=new Map(IDX.map(a=>[a.id,a]))}
 /* ---- armazenamento no aparelho (IndexedDB) ---- */
@@ -148,8 +150,10 @@ function porData(R){return R.filter(r=>{const k=dkey(r.ts);if(S.d1&&k<S.d1)retur
 function filtroDataHTML(tot){const hj=dkey(Date.now()),on=(a,b)=>S.d1===a&&S.d2===b?'true':'false',off=n=>dkey(Date.now()-n*864e5);
   return `<div class="card" style="margin-top:0"><label class="l">Data de envio</label><div class="chips" role="group" aria-label="Período"><button class="chip" data-per="all" aria-pressed="${on('','')}">Tudo</button><button class="chip" data-per="0" aria-pressed="${on(hj,hj)}">Hoje</button><button class="chip" data-per="1" aria-pressed="${on(off(1),off(1))}">Ontem</button><button class="chip" data-per="7" aria-pressed="${on(off(6),hj)}">7 dias</button></div><div class="filtros"><div><label class="l" for="d1">De</label><input id="d1" type="date" value="${S.d1}" max="${S.d2||''}"></div><div><label class="l" for="d2">Até</label><input id="d2" type="date" value="${S.d2}" min="${S.d1||''}"></div></div><label class="l" style="margin-top:12px">Situação</label><div class="chips" role="group" aria-label="Situação">${[['','Todos'],['tag','Com TAG'],['nt','NT (todos)'],...MOTIVOS.map(m=>[m[0],m[1]]),['sj','NT sem justificativa']].map(([k,n])=>`<button class="chip" data-fnt="${k}" aria-pressed="${S.fnt===k}">${n}</button>`).join('')}</div>${S.d1||S.d2||S.fnt?`<div class="hint">Mostrando ${tot.n} de ${tot.t} registros com o filtro.</div>`:''}</div>`}
 function render(){
+  if(S.tela==='login'||(!S.user&&S.tela!=='nome')){telaLogin();return}
   if(!IDX.length&&S.user){telaLista();return}
-  if(!S.user){$('#app').innerHTML=`<header><div class="top"><div class="marca"><img class="logo" src="${LOGO}" alt="Atvos"><h1>RFID Campo</h1></div></div></header><div class="card"><label class="l" for="nm">Seu nome</label><div class="nome"><input id="nm" autocomplete="name" placeholder="Ex.: Rodrigo Pena"><button id="nmok">Entrar</button></div><p class="hint">O nome aparece em cada registro que você enviar.</p></div>`;
+  if(!S.user){$('#app').innerHTML=`<header><div class="top"><div class="marca"><img class="logo" src="${LOGO}" alt="Atvos"><h1>RFID Campo</h1></div></div></header><div class="card"><label class="l" for="nm">Seu nome</label><div class="nome"><input id="nm" autocomplete="name" placeholder="Ex.: Rodrigo Pena"><button id="nmok">Entrar</button></div><p class="hint">O nome aparece em cada registro. Sem login, os registros ficam só neste aparelho e saem por arquivo ZIP.</p></div><button class="more" id="vlog">Entrar com login</button>`;
+    $('#vlog').onclick=()=>{S.tela='';render()};
     const go=()=>{const v=$('#nm').value.trim();if(v.length>1){S.user=v;ls.set('rc_user',v);render()}};$('#nmok').onclick=go;$('#nm').onkeydown=e=>{if(e.key==='Enter')go()};return}
   const L=lista();const feitos=Object.values(S.reg).filter(r=>!S.usina||r.usina===S.usina).length;
   let corpo='';
@@ -162,7 +166,8 @@ function render(){
     const R0=Object.values(S.reg).filter(r=>!S.usina||r.usina===S.usina).sort((a,b)=>(b.ts||0)-(a.ts||0)),R=porData(R0);
     corpo=`${filtroDataHTML({n:R.length,t:R0.length})}${exportHTML(R.length)}<div class="meta">${R.length} registros enviados em ${S.usina||'todas as usinas'}${S.d1||S.d2||S.fnt?' · filtrado':''}</div><div class="list">`+R.map(r=>{const a=BYID.get(r.id);return `<button class="item" data-id="${esc(r.id)}"><b>${esc(a?a.den:r.id)}</b><span class="pill ${r.nt?'nt':'ok'}">${r.nt?'NT'+(r.mot?' · '+esc(motNome(r.mot)):''):'TAG '+esc(r.tag)}</span><small>${esc(r.id.replace(/_/g,' · '))}<br>${(r.fotos||[]).length} foto(s) · ${esc(r.por||'')}${r.obs?'<br>Obs.: '+esc(r.obs):''} · ${new Date(r.ts).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}</small></button>`}).join('')+`</div>`+(R.length?'':`<div class="empty">${R0.length?'Nenhum registro com este filtro.':'Nada registrado nesta usina ainda.'}</div>`);
   }
-  $('#app').innerHTML=`<header><div class="top"><div class="marca"><img class="logo" src="${LOGO}" alt="Atvos"><h1>RFID Campo</h1></div><button class="who" id="troca">${esc(S.user)} · trocar</button></div>
+  $('#app').innerHTML=`<header><div class="top"><div class="marca"><img class="logo" src="${LOGO}" alt="Atvos"><h1>RFID Campo</h1></div><button class="who" id="troca">${esc(S.user)} · ${SESS?'sair':'trocar'}</button></div>
+   <button class="sy${txtSync()[1]?' al':''}" id="sy">${esc(txtSync()[0])}</button>
    <div class="chips" role="group" aria-label="Usina">${['',...USINAS].map(u=>`<button class="chip" aria-pressed="${u===S.usina}" data-u="${u}">${u||'Todas'}</button>`).join('')}</div>
    ${S.tab==='ativos'?(()=>{const o=opcoes();return `<div class="filtros"><div><label class="l" for="fs">Setor / local</label><select id="fs"><option value="">Todos</option>${o.set.map(x=>`<option${x===S.fs?' selected':''}>${esc(x)}</option>`).join('')}</select></div><div><label class="l" for="fa">Área / local</label><select id="fa"><option value="">Todas</option>${o.ar.map(x=>`<option${x===S.fa?' selected':''}>${esc(x)}</option>`).join('')}</select></div></div>`})():''}
    ${S.tab==='ativos'?`<div class="chips st" role="group" aria-label="Situação">${FILTROS.map(([k,n])=>`<button class="chip pq" aria-pressed="${k===S.st}" data-st="${k}">${n}</button>`).join('')}</div><input class="search" id="q" type="search" inputmode="search" placeholder="Buscar por nº do imobilizado, descrição ou local" value="${esc(S.q)}" autocomplete="off">`:''}
@@ -179,16 +184,18 @@ function render(){
   document.querySelectorAll('[data-gs]').forEach(b=>b.onclick=()=>{S.usina=b.dataset.gu||'';S.st=b.dataset.gs;S.fs='';S.fa='';S.q='';S._q=[];S.tab='ativos';S.lim=40;ls.set('rc_usina',S.usina);render();scrollTo(0,0)});
   document.querySelectorAll('.item').forEach(b=>b.onclick=()=>abrir(b.dataset.id));
   const m=$('#mais');if(m)m.onclick=()=>{S.lim+=60;render()};
-  $('#troca').onclick=()=>{S.user='';ls.set('rc_user','');render()};
+  $('#troca').onclick=()=>{salvaSess(null);S.user='';ls.set('rc_user','');S.tela='';render()};
+  $('#sy').onclick=()=>{if(!SESS){S.tela='login';render()}else sincronizar()};
   const fs=$('#fs');if(fs){fs.onchange=()=>{S.fs=fs.value;S.fa='';S.lim=40;render()};$('#fa').onchange=e=>{S.fa=e.target.value;S.lim=40;render()}}
   const q=$('#q');if(q)q.oninput=()=>{S.q=q.value;S._q=norm(q.value).split(/\s+/).filter(Boolean);S.lim=40;const p=q.selectionStart;render();const n=$('#q');n.focus();n.setSelectionRange(p,p)};
 }
 S._q=[];
 
-function pendentes(){return porData(Object.values(S.reg).filter(r=>(!S.usina||r.usina===S.usina)&&(!S.onlyNew||(r.ts||0)>(r.exportadoEm||0))))}
-function exportHTML(n){const tot=Object.values(S.reg).filter(r=>!S.usina||r.usina===S.usina).length;if(!tot)return '';const p=pendentes().length;
-  return `<div class="card" style="margin-top:0"><label class="l">Levar para o computador</label>
-  <label class="ntl" style="margin:0 0 8px"><input type="checkbox" id="solonovos" ${S.onlyNew?'checked':''}> Só o que ainda não foi enviado (${Object.values(S.reg).filter(r=>(!S.usina||r.usina===S.usina)&&(r.ts||0)>(r.exportadoEm||0)).length})</label>
+const locais=()=>Object.values(S.reg).filter(r=>!r.remoto);
+function pendentes(){return porData(locais().filter(r=>(!S.usina||r.usina===S.usina)&&(!S.onlyNew||(r.ts||0)>(r.exportadoEm||0))))}
+function exportHTML(n){const tot=locais().filter(r=>!S.usina||r.usina===S.usina).length;if(!tot)return '';const p=pendentes().length;
+  return `<div class="card" style="margin-top:0"><label class="l">Levar para o computador por arquivo (sem login)</label>
+  <label class="ntl" style="margin:0 0 8px"><input type="checkbox" id="solonovos" ${S.onlyNew?'checked':''}> Só o que ainda não foi exportado (${locais().filter(r=>(!S.usina||r.usina===S.usina)&&(r.ts||0)>(r.exportadoEm||0)).length})</label>
   <button class="save" id="shr" ${S.exp||!p?'disabled':''}>${S.exp||'Compartilhar ZIP ('+p+')'}</button>
   <button class="del" id="exp" style="border-color:var(--line);color:var(--ink)" ${S.exp||!p?'disabled':''}>Baixar ZIP no aparelho</button>
   <div class="hint">Gera um arquivo com os registros e as fotos com marca d'água. Envie por Teams, WhatsApp, e-mail ou OneDrive. No app Inventário RFID: Importar e carga › Importar registros do celular.</div></div>`}
@@ -200,7 +207,7 @@ async function exportar(compartilhar){
    for(const [i,r] of R.entries()){S.exp=`Preparando ${i+1} de ${R.length}…`;render();
     const a=BYID.get(r.id)||{};const base=`${a.u}_${a.imob}_${a.sub}`;const dup=a.imob&&r.id!==base?+r.id.slice(base.length+1)||1:1;
     const fotos=[];
-    for(const f of (r.fotos||[])){const arq=`fotos/${r.usina}/${f.nome}`;zip.file(arq,f.blob);fotos.push({nome:f.nome,ts:f.ts||r.ts,arquivo:arq});nf++}
+    for(const f of (r.fotos||[])){if(!f.blob)continue;const arq=`fotos/${r.usina}/${f.nome}`;zip.file(arq,f.blob);fotos.push({nome:f.nome,ts:f.ts||r.ts,arquivo:arq});nf++}
     regs.push({id:r.id,u:r.usina,imob:r.imob,sub:r.sub,inv:a.inv||r.inv||'',dup,tag:r.tag||'',nt:!!r.nt,mot:r.mot||'',obs:r.obs||'',por:r.por||'',ts:r.ts,dia:r.dia,fotos});}
    zip.file('registros.json',JSON.stringify({versao:1,geradoEm:Date.now(),geradoPor:S.user,registros:regs}));
    S.exp='Compactando…';render();
@@ -232,13 +239,20 @@ async function carregarLista(f){if(!f)return;
 /* ---- folha de registro ---- */
 function abrir(id){
   const a=BYID.get(id);if(!a)return;const ex=S.reg[id];
-  S.sel={a,orig:ex?{tag:ex.tag||'',nt:!!ex.nt}:null,ex,conf:false,tag:ex?ex.tag||'':(a.tag||''),nt:ex?!!ex.nt:false,mot:ex&&ex.nt?ex.mot||'':'',obs:ex&&ex.obs?ex.obs:'',fotos:ex&&ex.fotos?ex.fotos.map(f=>({...f,url:URL.createObjectURL(f.blob)})):[],busy:0,aviso:''};
-  desenharSheet();$('#sheet').hidden=false;document.body.style.overflow='hidden';
+  S.sel={a,orig:ex?{tag:ex.tag||'',nt:!!ex.nt}:null,ex,conf:false,tag:ex?ex.tag||'':(a.tag||''),nt:ex?!!ex.nt:false,mot:ex&&ex.nt?ex.mot||'':'',obs:ex&&ex.obs?ex.obs:'',fotos:ex&&ex.fotos?ex.fotos.map(f=>({...f,url:f.blob?URL.createObjectURL(f.blob):''})):[],busy:0,aviso:''};
+  desenharSheet();if(S.sel.fotos.some(f=>!f.blob))baixarFotos(S.sel);$('#sheet').hidden=false;document.body.style.overflow='hidden';
 }
 function fechar(){$('#sheet').hidden=true;document.body.style.overflow='';S.sel=null;render()}
+const trava=s=>!!s.busy||(!s.nt&&!s.tag)||(s.nt&&!s.mot)||s.fotos.some(f=>!f.blob);
+async function baixarFotos(s){
+  try{for(const f of s.fotos){if(f.blob)continue;if(!f.path)throw new Error('sem caminho');
+    const r=await sb(`/storage/v1/object/authenticated/${SB.bucket}/${segPath(f.path)}`),b=await r.blob();
+    if(!/^image\//.test(b.type))throw new Error('foto inválida');f.blob=b;f.url=URL.createObjectURL(b);if(S.sel===s)desenharSheet()}}
+  catch(e){s.semFoto=true}
+  if(S.sel===s)desenharSheet()}
 function desenharSheet(){
   const s=S.sel,a=s.a;
-  const fotos=s.fotos.map((f,i)=>`<div class="foto"><img data-ver="${i}" src="${esc(f.url)}" alt="Foto ${i+1}"><span class="n">${i+1}</span><button class="x" data-rm="${i}" aria-label="Remover foto ${i+1}">×</button></div>`).join('')+(s.busy?`<div class="foto up">Enviando…</div>`:'');
+  const fotos=s.fotos.map((f,i)=>!f.url?`<div class="foto up">${s.semFoto?'Na nuvem':'Baixando…'}</div>`:`<div class="foto"><img data-ver="${i}" src="${esc(f.url)}" alt="Foto ${i+1}"><span class="n">${i+1}</span><button class="x" data-rm="${i}" aria-label="Remover foto ${i+1}">×</button></div>`).join('')+(s.busy?`<div class="foto up">Enviando…</div>`:'');
   const ed=s.ex?`<div class="warn" style="margin-top:0">Registro já salvo por ${esc(s.ex.por||'—')} em ${new Date(s.ex.ts).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}. Ao salvar de novo, ele substitui o anterior e o histórico guarda a versão antiga.</div>`:'';
   const mud=s.orig&&(s.orig.tag!==(s.nt?'':s.tag)||s.orig.nt!==s.nt)&&s.fotos.some(f=>!f.local)?`<div class="warn">A TAG mudou, mas as fotos já salvas mostram a TAG anterior. Remova essas fotos (×) e tire de novo.</div>`:'';
   $('#sheet').innerHTML=`<div class="in"><button class="back" id="vol">← Voltar à lista</button>${ed}
@@ -249,10 +263,10 @@ function desenharSheet(){
    <div class="card"><label class="l" for="ob">Observação (opcional)</label><textarea id="ob" class="obs" rows="3" maxlength="500" placeholder="Ex.: plaqueta danificada, ativo não localizado, local diferente da base">${esc(s.obs)}</textarea></div>
    <div class="card"><label class="l">Fotos (${s.fotos.length})</label><div class="fotos">${fotos}</div>
    <label class="cam"><input type="file" id="cam" accept="image/*" capture="environment" multiple>${s.fotos.length?'Tirar outra foto':'Tirar foto'}</label>
-   <div class="hint">Arquivo: ${esc(nomeFoto(a,s.tag,s.fotos.length+1))}</div><div class="hint">A hora, a data e a TAG são impressas na foto ao salvar.</div>${mud}</div></div>
-   <div class="bar"><div><button class="save" id="sv" ${s.busy||(!s.nt&&!s.tag)||(s.nt&&!s.mot)?'disabled':''}>${s.ex?'Salvar alterações':'Salvar registro'}</button>${s.ex?`<button class="del" id="ap">${s.conf?'Confirmar: apagar este registro':'Apagar registro'}</button>`:''}</div></div>`;
+   <div class="hint">Arquivo: ${esc(nomeFoto(a,s.tag,s.fotos.length+1))}</div><div class="hint">A hora, a data e a TAG são impressas na foto ao salvar.</div>${mud}${s.semFoto?`<div class="warn">As fotos deste registro estão na nuvem e não foram baixadas. Para alterar, conecte-se à internet, entre com seu login e abra o registro de novo.</div>`:''}</div></div>
+   <div class="bar"><div><button class="save" id="sv" ${trava(s)?'disabled':''}>${s.ex?'Salvar alterações':'Salvar registro'}</button>${s.ex?`<button class="del" id="ap">${s.conf?'Confirmar: apagar este registro':'Apagar registro'}</button>`:''}</div></div>`;
   $('#vol').onclick=fechar;
-  const tg=$('#tg');tg.oninput=()=>{s.tag=tg.value.replace(/\D/g,'').slice(0,8);tg.value=s.tag;checarDup();const h=document.querySelector('.hint:last-of-type');$('#sv').disabled=!!s.busy||(!s.nt&&!s.tag)||(s.nt&&!s.mot)};
+  const tg=$('#tg');tg.oninput=()=>{s.tag=tg.value.replace(/\D/g,'').slice(0,8);tg.value=s.tag;checarDup();const h=document.querySelector('.hint:last-of-type');$('#sv').disabled=trava(s)};
   tg.onchange=()=>desenharSheet();
   $('#ntc').onchange=e=>{s.nt=e.target.checked;if(s.nt)s.tag='';else s.mot='';desenharSheet()};
   const mo=$('#mot');if(mo)mo.onchange=()=>{s.mot=mo.value;desenharSheet()};
@@ -263,7 +277,7 @@ function desenharSheet(){
   $('#sv').onclick=salvar;
   const ap=$('#ap');if(ap)ap.onclick=()=>{if(!s.conf){s.conf=true;desenharSheet();return}apagar()};
 }
-function verFoto(i){const s=S.sel;if(!s||!s.fotos[i])return;let k=i;
+function verFoto(i){const s=S.sel;if(!s||!s.fotos[i]||!s.fotos[i].url)return;let k=i;
   const lb=document.createElement('div');lb.className='lb';
   const pinta=()=>{lb.innerHTML=`<img src="${esc(s.fotos[k].url)}" alt="Foto ${k+1}"><button aria-label="Fechar">×</button><div class="cnt">Foto ${k+1} de ${s.fotos.length}${s.fotos[k].local?' · ainda sem marca d\'água (ela entra ao salvar)':''}${s.fotos.length>1?' · toque na foto para a próxima':''}</div>`;
     lb.querySelector('img').onclick=e=>{e.stopPropagation();if(s.fotos.length>1){k=(k+1)%s.fotos.length;pinta()}else lb.remove()};lb.querySelector('button').onclick=e=>{e.stopPropagation();lb.remove()}};
@@ -307,18 +321,130 @@ async function addFotos(files){const s=S.sel;if(!files.length)return;
     s.busy--;}
   desenharSheet()}
 async function apagar(){const s=S.sel,a=s.a;
-  try{await idbDel('registros',a.id);delete S.reg[a.id];toast('Registro apagado');S.sel=null;$('#sheet').hidden=true;document.body.style.overflow='';render()}
+  try{const r0=S.reg[a.id];await idbDel('registros',a.id);delete S.reg[a.id];
+    if(r0&&(r0.syncEm||r0.remoto)){const ap=(await idbGet('meta','apagar'))||[];if(!ap.includes(a.id)){ap.push(a.id);await idbPut('meta',ap,'apagar')}sincronizar()}
+    toast('Registro apagado');S.sel=null;$('#sheet').hidden=true;document.body.style.overflow='';render()}
   catch(e){s.conf=false;desenharSheet();toast('Não apagou: '+((e&&e.message)||'erro'))}}
+/* fotos já enviadas mantêm nome e caminho; as novas ganham um nome que ainda não existe no registro */
+function nomear(s,a){const us=new Set(s.fotos.filter(f=>f.up&&f.nome).map(f=>f.nome));
+  return s.fotos.map((f,i)=>{if(f.up&&f.nome)return{blob:f.blob,seq:i+1,nome:f.nome,ts:f.ts||null,up:true,path:f.path};
+    let k=i+1,n;do{n=nomeFoto(a,s.tag,k++)}while(us.has(n));us.add(n);return{blob:f.blob,seq:i+1,nome:n,ts:f.ts||null}})}
 async function salvar(){const s=S.sel,a=s.a;
+  if(s.fotos.some(f=>!f.blob)){toast('Aguarde as fotos baixarem da nuvem');return}
   if(!s.nt&&!s.tag){toast('Informe a TAG ou marque NT');return}
   const b=$('#sv');b.disabled=true;const novas=s.fotos.filter(f=>f.local);let n=0;
   for(const f of s.fotos){if(!f.local)continue;n++;b.textContent=`Gravando foto ${n} de ${novas.length}…`;
     try{const m=await marcar(f.blob,a,{tag:s.nt?'':s.tag,nt:s.nt,user:S.user},f.ts);URL.revokeObjectURL(f.url);f.blob=m;f.url=URL.createObjectURL(m);delete f.local}
     catch(e){b.disabled=false;b.textContent=s.ex?'Salvar alterações':'Salvar registro';toast('Foto '+n+' não foi gravada: '+((e&&e.message)||'erro')+'. Toque em salvar para tentar de novo.');desenharSheet();return}}
-  const doc={id:a.id,usina:a.u,imob:a.imob,sub:a.sub,inv:a.inv||'',tag:s.nt?'':s.tag,nt:s.nt,mot:s.nt?s.mot:'',fotos:s.fotos.map((f,i)=>({blob:f.blob,seq:i+1,nome:nomeFoto(a,s.tag,i+1),ts:f.ts||null})),obs:(s.obs||'').trim(),hist:(s.ex?[...(s.ex.hist||[]),{por:s.ex.por||'',ts:s.ex.ts||0,tag:s.ex.tag||'',nt:!!s.ex.nt,obs:s.ex.obs||''}]:[]).slice(-10),por:S.user,ts:Date.now(),dia:hoje(),exportadoEm:0};
+  const doc={id:a.id,usina:a.u,imob:a.imob,sub:a.sub,inv:a.inv||'',tag:s.nt?'':s.tag,nt:s.nt,mot:s.nt?s.mot:'',fotos:nomear(s,a),obs:(s.obs||'').trim(),hist:(s.ex?[...(s.ex.hist||[]),{por:s.ex.por||'',ts:s.ex.ts||0,tag:s.ex.tag||'',nt:!!s.ex.nt,obs:s.ex.obs||''}]:[]).slice(-10),por:S.user,ts:Date.now(),dia:hoje(),exportadoEm:0};
   b.textContent='Salvando…';
-  try{await idbPut('registros',doc);S.reg[a.id]=doc;toast('Registro salvo no aparelho');S.sel=null;$('#sheet').hidden=true;document.body.style.overflow='';render()}
+  try{await idbPut('registros',doc);S.reg[a.id]=doc;toast('Registro salvo no aparelho');S.sel=null;$('#sheet').hidden=true;document.body.style.overflow='';render();sincronizar()}
   catch(e){b.disabled=false;b.textContent=s.ex?'Salvar alterações':'Salvar registro';toast('Não salvou: '+((e&&e.message)||'erro'))}}
+
+/* ---- nuvem (Supabase): login por pessoa e sincronização ---- */
+const SB={url:'https://jdajbszuymsyovgpcyro.supabase.co',key:'sb_publishable_pp122785ZkDm1ZgAMKsmSA_FwmHCB_W',bucket:'fotos'};
+const Y={on:false,msg:'',err:'',ult:0};
+let SESS=null;try{SESS=JSON.parse(ls.get('rc_sess','null'))}catch(e){}
+const salvaSess=s=>{SESS=s;ls.set('rc_sess',JSON.stringify(s))};
+class Fora extends Error{}
+async function sbAuth(grant,body){
+  const r=await fetch(`${SB.url}/auth/v1/token?grant_type=${grant}`,{method:'POST',headers:{apikey:SB.key,'Content-Type':'application/json'},body:JSON.stringify(body)});
+  let j=null;try{j=await r.json()}catch(e){}
+  if(!r.ok||!j||!j.access_token){const e=new Error((j&&(j.msg||j.error_description||j.message))||('erro '+r.status));e.status=r.status;e.code=(j&&(j.error_code||j.error))||'';throw e}
+  return j}
+async function token(){
+  if(!SESS)throw new Fora('sem sessão');
+  if(Date.now()<SESS.exp-60000)return SESS.at;
+  try{const j=await sbAuth('refresh_token',{refresh_token:SESS.rt});salvaSess({...SESS,at:j.access_token,rt:j.refresh_token,exp:Date.now()+j.expires_in*1000});return SESS.at}
+  catch(e){if(e.status>=400&&e.status<500&&e.status!==429){salvaSess(null);throw new Fora('sessão expirada')}throw e}}
+async function sb(path,o={}){const t=await token();
+  const r=await fetch(SB.url+path,{method:o.method||'GET',headers:{apikey:SB.key,Authorization:'Bearer '+t,...(o.json?{'Content-Type':'application/json'}:{}),...(o.headers||{})},body:o.json?JSON.stringify(o.json):o.body});
+  if(r.status===401&&SESS){salvaSess({...SESS,exp:0})}
+  if(!r.ok){let m='';try{const j=await r.json();m=j.message||j.error||''}catch(e){}throw new Error(m||('erro '+r.status))}
+  return r}
+async function sbJson(path,o){const r=await sb(path,o),t=await r.text();try{const j=JSON.parse(t);if(!Array.isArray(j))throw 0;return j}catch(e){throw new TypeError('resposta inválida')}}
+async function entrar(email,senha){
+  let j;try{j=await sbAuth('password',{email,password:senha})}
+  catch(e){if(e instanceof TypeError)throw new Error('Sem conexão. O login precisa de internet.');
+    if(e.code==='invalid_credentials'||e.status===400)throw new Error('E-mail ou senha incorretos.');throw new Error('Não foi possível entrar: '+e.message)}
+  salvaSess({at:j.access_token,rt:j.refresh_token,exp:Date.now()+j.expires_in*1000,email:(j.user&&j.user.email)||email});
+  let eq;try{eq=await sbJson('/rest/v1/equipe?select=nome,ativo&limit=1')}catch(e){salvaSess(null);throw new Error('Não foi possível conferir seu acesso: '+(e.message||'erro'))}
+  if(!eq.length||!eq[0].ativo){salvaSess(null);throw new Error('Este e-mail ainda não foi liberado na equipe. Fale com o coordenador.')}
+  S.user=eq[0].nome;ls.set('rc_user',S.user)}
+function telaLogin(msg){
+  $('#app').innerHTML=`<header><div class="top"><div class="marca"><img class="logo" src="${LOGO}" alt="Atvos"><h1>RFID Campo</h1></div></div></header>
+  <div class="card"><label class="l" for="em">E-mail</label><input class="search" id="em" type="email" inputmode="email" autocomplete="username" autocapitalize="none" spellcheck="false" value="${esc(S._em||'')}">
+  <label class="l" for="pw" style="display:block;margin-top:12px">Senha</label><input class="search" id="pw" type="password" autocomplete="current-password">
+  <button class="save" id="lg" style="margin-top:14px">Entrar</button>${msg?`<div class="warn">${esc(msg)}</div>`:''}
+  <p class="hint">Com o login, seus registros e fotos vão para a nuvem e você vê o que a equipe já fez. O acesso é criado pelo coordenador.</p></div>
+  <button class="more" id="sl">${S.user?'Voltar':'Usar sem login, só neste aparelho'}</button>`;
+  const go=async()=>{const em=$('#em').value.trim().toLowerCase(),pw=$('#pw').value;S._em=em;if(!em||!pw){telaLogin('Informe e-mail e senha.');return}
+    const b=$('#lg');b.disabled=true;b.textContent='Entrando…';
+    try{await entrar(em,pw);S.tela='';render();sincronizar()}catch(e){telaLogin(e.message||'Não foi possível entrar.')}};
+  $('#lg').onclick=go;$('#pw').onkeydown=e=>{if(e.key==='Enter')go()};
+  $('#sl').onclick=()=>{S.tela=S.user?'':'nome';render()}}
+const aEnviar=()=>locais().filter(r=>(r.ts||0)>(r.syncEm||0));
+const segPath=p=>p.split('/').map(encodeURIComponent).join('/');
+const limpo=x=>String(x).replace(/[^A-Za-z0-9_.-]/g,'_');
+const aspas=x=>'"'+String(x).replace(/(["\\])/g,'\\$1')+'"';
+function txtSync(){const n=aEnviar().length;
+  if(!SESS)return[n?`Entrar para enviar à nuvem · ${n} só neste aparelho`:'Entrar para sincronizar com a equipe',true];
+  if(Y.on)return[Y.msg||'Sincronizando…',false];
+  if(Y.err)return[`${Y.err}${n?' · '+n+' a enviar':''} · toque para tentar de novo`,true];
+  if(n)return[`${n} a enviar · toque para sincronizar`,true];
+  return['Sincronizado com a equipe'+(Y.ult?' às '+new Date(Y.ult).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}):''),false]}
+function pintaSync(){const b=$('#sy');if(!b)return;const[t,al]=txtSync();b.textContent=t;b.className='sy'+(al?' al':'')}
+async function sincronizar(){
+  if(Y.on||!SESS||!IDB)return;
+  if(navigator.onLine===false){Y.err='Sem conexão';pintaSync();return}
+  Y.on=true;Y.err='';Y.msg='Sincronizando…';pintaSync();let mudou=false,subst=0;
+  try{
+    /* 1. exclusões feitas neste aparelho */
+    let ap=(await idbGet('meta','apagar'))||[];
+    for(const id of [...ap]){const q=encodeURIComponent(id);
+      await sb(`/rest/v1/fotos?registro_id=eq.${q}`,{method:'DELETE'});await sb(`/rest/v1/registros?id=eq.${q}`,{method:'DELETE'});
+      ap=ap.filter(x=>x!==id);await idbPut('meta',ap,'apagar')}
+    /* 2. baixa o que a equipe registrou desde a última vez (com 2 min de folga) */
+    const c0=await idbGet('meta','pull');let ct=c0&&c0.t?new Date(Date.parse(c0.t)-120000).toISOString():'1970-01-01T00:00:00Z',ci='';
+    for(;;){
+      const rows=await sbJson(`/rest/v1/registros?select=*&or=${encodeURIComponent(`(atualizado_em.gt.${aspas(ct)},and(atualizado_em.eq.${aspas(ct)},id.gt.${aspas(ci)}))`)}&order=atualizado_em.asc,id.asc&limit=500`);
+      if(!rows.length)break;
+      const novos=[];
+      for(const x of rows){if(ap.includes(x.id))continue;const l=S.reg[x.id],pend=l&&!l.remoto&&(l.ts||0)>(l.syncEm||0);
+        if(!l||x.ts>(l.ts||0)){novos.push(x);if(pend)subst++}
+        else if(pend&&x.ts<l.ts&&x.ts>(l.syncEm||0)&&!(l.hist||[]).some(h=>h.ts===x.ts)){l.hist=[...(l.hist||[]),{por:x.por||'',ts:x.ts,tag:x.tag||'',nt:!!x.nt,obs:x.obs||''}].slice(-10);await idbPut('registros',l)}}
+      const F={};
+      for(let i=0;i<novos.length;i+=60){
+        const fs=await sbJson(`/rest/v1/fotos?select=registro_id,nome,seq,ts,path&registro_id=in.${encodeURIComponent('('+novos.slice(i,i+60).map(x=>aspas(x.id)).join(',')+')')}&order=seq.asc`);
+        fs.forEach(f=>(F[f.registro_id]=F[f.registro_id]||[]).push({seq:f.seq,nome:f.nome,ts:f.ts,path:f.path,up:true}))}
+      for(const x of novos){const d={id:x.id,usina:x.usina,imob:x.imob||'',sub:x.sub||'0',inv:(BYID.get(x.id)||{}).inv||'',tag:x.tag||'',nt:!!x.nt,mot:x.mot||'',obs:x.obs||'',por:x.por||'',dia:x.dia,ts:x.ts,hist:x.hist||[],fotos:F[x.id]||[],remoto:true,syncEm:x.ts,exportadoEm:x.ts};
+        await idbPut('registros',d);S.reg[x.id]=d;mudou=true}
+      const u=rows[rows.length-1];ct=u.atualizado_em;ci=u.id;await idbPut('meta',{t:ct},'pull');
+      if(rows.length<500)break}
+    /* 3. envia o que foi registrado neste aparelho */
+    const P=aEnviar().sort((a,b)=>a.ts-b.ts);let i=0;
+    for(const r of P){i++;Y.msg=`Enviando ${i} de ${P.length}…`;pintaSync();const ts0=r.ts;let troca=false;
+      for(const f of r.fotos||[]){if(f.up||!f.blob)continue;
+        const path=`${limpo(r.usina)}/${limpo(r.dia)}/${limpo(r.id)}/${limpo(f.nome)}`;
+        await sb(`/storage/v1/object/${SB.bucket}/${segPath(path)}`,{method:'POST',headers:{'Content-Type':'image/jpeg','x-upsert':'true'},body:f.blob});
+        if(S.reg[r.id]!==r){troca=true;break}
+        f.path=path;f.up=true;await idbPut('registros',r)}
+      if(troca||S.reg[r.id]!==r)continue;
+      await sb('/rest/v1/registros?on_conflict=id',{method:'POST',headers:{Prefer:'resolution=merge-duplicates,return=minimal'},json:{id:r.id,usina:r.usina,imob:r.imob||null,sub:r.sub||'0',tag:r.tag||'',nt:!!r.nt,mot:r.mot||'',obs:r.obs||'',por:r.por||'',dia:r.dia,ts:r.ts,hist:r.hist||[]}});
+      await sb(`/rest/v1/fotos?registro_id=eq.${encodeURIComponent(r.id)}`,{method:'DELETE'});
+      const fs=(r.fotos||[]).filter(f=>f.up).map(f=>({id:r.id+'_'+f.seq,registro_id:r.id,nome:f.nome,seq:f.seq,ts:f.ts||r.ts,path:f.path}));
+      if(fs.length)await sb('/rest/v1/fotos?on_conflict=id',{method:'POST',headers:{Prefer:'resolution=merge-duplicates,return=minimal'},json:fs});
+      if(S.reg[r.id]===r&&r.ts===ts0){r.syncEm=ts0;await idbPut('registros',r)}
+      mudou=true}
+    Y.ult=Date.now();
+  }catch(e){Y.err=e instanceof Fora?'Entre de novo para sincronizar':(e instanceof TypeError?'Sem conexão':'Não sincronizou: '+((e&&e.message)||'erro'))}
+  Y.on=false;Y.msg='';
+  if(subst)toast(subst+' registro(s) seu(s) foram substituídos por versão mais nova da equipe');
+  if(mudou&&!['INPUT','SELECT','TEXTAREA'].includes((document.activeElement||{}).tagName))render();else pintaSync();
+}
+addEventListener('online',()=>sincronizar());
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)sincronizar()});
+setInterval(()=>{if(!document.hidden)sincronizar()},60000);
 
 /* ---- inicialização ---- */
 (async()=>{
@@ -326,6 +452,7 @@ async function salvar(){const s=S.sel,a=s.a;
   try{await abrirIDB();const l=await idbGet('meta','lista');if(l&&l.rows){montar(l.rows);S.metaLista={geradoEm:l.geradoEm,n:l.n}}
     const rs=await idbAll('registros');S.reg=Object.fromEntries(rs.map(r=>[r.id,r]));
     try{if(navigator.storage&&navigator.storage.persist)navigator.storage.persist()}catch(e){}
+    sincronizar();
   }catch(e){S.erro='Este navegador não permite guardar dados no aparelho. Use o Chrome.'}
   render();
   if('serviceWorker' in navigator&&location.protocol.startsWith('http'))navigator.serviceWorker.register('sw.js').catch(()=>{});
