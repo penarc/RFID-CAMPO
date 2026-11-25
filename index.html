@@ -177,7 +177,7 @@ function render(){
   document.querySelectorAll('[data-per]').forEach(b=>b.onclick=()=>{const p=b.dataset.per,f=n=>dkey(Date.now()-n*864e5);if(p==='all'){S.d1=S.d2=''}else if(p==='7'){S.d1=f(6);S.d2=f(0)}else{S.d1=S.d2=f(+p)}render()});
   const d1=$('#d1');if(d1){d1.onchange=()=>{S.d1=d1.value;if(S.d2&&S.d1>S.d2)S.d2=S.d1;render()};$('#d2').onchange=e=>{S.d2=e.target.value;if(S.d1&&S.d2<S.d1)S.d1=S.d2;render()}}
   document.querySelectorAll('[data-fnt]').forEach(b=>b.onclick=()=>{S.fnt=b.dataset.fnt;render()});
-  const be=$('#exp');if(be)be.onclick=()=>exportar(false);const bs=$('#shr');if(bs)bs.onclick=()=>exportar(true);const sn=$('#solonovos');if(sn)sn.onchange=e=>{S.onlyNew=e.target.checked;render()};
+  const be=$('#exp');if(be)be.onclick=()=>exportar(false);const bx=$('#xls');if(bx)bx.onclick=()=>relatorioExcel();const bs=$('#shr');if(bs)bs.onclick=()=>exportar(true);const sn=$('#solonovos');if(sn)sn.onchange=e=>{S.onlyNew=e.target.checked;render()};
   const lf2=$('#lf2');if(lf2)lf2.onchange=e=>carregarLista(e.target.files[0]);
   document.querySelectorAll('[data-st]').forEach(b=>b.onclick=()=>{S.st=b.dataset.st;S.lim=40;render()});
   document.querySelectorAll('[data-sel]').forEach(r=>r.onclick=()=>{S.usina=r.dataset.sel;S.fs='';S.fa='';ls.set('rc_usina',S.usina);render();scrollTo(0,0)});
@@ -201,7 +201,54 @@ function exportHTML(n){if(SESS&&!S.admin)return '';const tot=baseExp().filter(r=
   <label class="ntl" style="margin:0 0 8px"><input type="checkbox" id="solonovos" ${S.onlyNew?'checked':''}> Só o que ainda não foi ${sv?'baixado':'exportado'} (${baseExp().filter(r=>(!S.usina||r.usina===S.usina)&&(r.ts||0)>marcaExp(r)).length})</label>
   <button class="save" id="shr" ${S.exp||!p?'disabled':''}>${S.exp||'Compartilhar ZIP ('+p+')'}</button>
   <button class="del" id="exp" style="border-color:var(--line);color:var(--ink)" ${S.exp||!p?'disabled':''}>Baixar ZIP no aparelho</button>
+  <button class="del" id="xls" style="border-color:var(--line);color:var(--ink)" ${S.exp||!relBase().length?'disabled':''}>Relatório Excel (${relBase().length})</button>
   <div class="hint">${sv?'Junta os registros de toda a equipe e as fotos que estão no servidor, no mesmo formato do arquivo do celular. Use os filtros de usina e data acima. No app Inventário RFID: Importar e carga › Importar registros do celular.':'Gera um arquivo com os registros e as fotos com marca d\'água. Envie por Teams, WhatsApp, e-mail ou OneDrive. No app Inventário RFID: Importar e carga › Importar registros do celular.'}</div></div>`}
+/* ---- relatório de saída em Excel (.xlsx) ---- */
+/* todos os registros dos filtros de usina, data e situação (não depende de "só o que ainda não foi baixado") */
+const relBase=()=>porData(baseExp().filter(r=>!S.usina||r.usina===S.usina)).sort((a,b)=>(a.usina>b.usina?1:a.usina<b.usina?-1:a.ts-b.ts));
+function xlsxBlob(abas){
+  const x=v=>String(v==null?'':v).replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g,'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  const col=i=>{let s='';i++;while(i){const m=(i-1)%26;s=String.fromCharCode(65+m)+s;i=(i-m-1)/26}return s};
+  const z=new JSZip();
+  z.file('[Content_Types].xml','<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>'+abas.map((a,i)=>`<Override PartName="/xl/worksheets/sheet${i+1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join('')+'</Types>');
+  z.file('_rels/.rels','<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>');
+  z.file('xl/workbook.xml','<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>'+abas.map((a,i)=>`<sheet name="${x(a.nome)}" sheetId="${i+1}" r:id="rId${i+1}"/>`).join('')+'</sheets></workbook>');
+  z.file('xl/_rels/workbook.xml.rels','<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'+abas.map((a,i)=>`<Relationship Id="rId${i+1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i+1}.xml"/>`).join('')+`<Relationship Id="rId${abas.length+1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`);
+  /* estilos: 0 normal, 1 cabeçalho (negrito, branco sobre azul Atvos), 2 total (negrito) */
+  z.file('xl/styles.xml','<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="3"><font><sz val="10"/><name val="Arial"/></font><font><b/><sz val="10"/><color rgb="FFFFFFFF"/><name val="Arial"/></font><font><b/><sz val="10"/><name val="Arial"/></font></fonts><fills count="4"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF005A7E"/><bgColor indexed="64"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFEDEDED"/><bgColor indexed="64"/></patternFill></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="3"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1"/><xf numFmtId="0" fontId="2" fillId="3" borderId="0" xfId="0" applyFont="1" applyFill="1"/></cellXfs></styleSheet>');
+  abas.forEach((a,i)=>{
+    const linhas=[a.cab,...a.linhas],ult=col(a.cab.length-1);
+    const rows=linhas.map((l,r)=>{const st=r===0?1:(a.total&&r===linhas.length-1?2:0);
+      return `<row r="${r+1}">`+l.map((v,c)=>{const ref=col(c)+(r+1),s=st?` s="${st}"`:'';
+        return typeof v==='number'?`<c r="${ref}"${s}><v>${v}</v></c>`:`<c r="${ref}"${s} t="inlineStr"><is><t xml:space="preserve">${x(v)}</t></is></c>`}).join('')+'</row>'}).join('');
+    const cols=a.larg.map((w,c)=>`<col min="${c+1}" max="${c+1}" width="${w}" customWidth="1"/>`).join('');
+    z.file(`xl/worksheets/sheet${i+1}.xml`,`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews><cols>${cols}</cols><sheetData>${rows}</sheetData>${a.filtro?`<autoFilter ref="A1:${ult}${linhas.length}"/>`:''}</worksheet>`)});
+  return z.generateAsync({type:'blob',compression:'DEFLATE',mimeType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'})}
+async function relatorioExcel(){
+  if(!window.JSZip){toast('Biblioteca de arquivos não carregou. Recarregue a página.');return}
+  if(modoServ()){S.exp='Atualizando do servidor…';render();await sincronizar();S.exp=''}
+  const R=relBase();if(!R.length){render();return}
+  S.exp='Montando relatório…';render();
+  try{
+    const p2=n=>String(n).padStart(2,'0'),dt=ts=>{const d=new Date(ts||0);return[`${p2(d.getDate())}/${p2(d.getMonth()+1)}/${d.getFullYear()}`,`${p2(d.getHours())}:${p2(d.getMinutes())}`]};
+    const mot=c=>{const m=MOTIVOS.find(m=>m[0]===c);return m?`${m[0]} - ${m[1]}`:(c||'')};
+    const naBase=r=>!!(r.remoto||(r.syncEm&&r.syncEm>=(r.ts||0)));
+    const cab=['Usina','Imobilizado','Subnº','Denominação','Nº inventário','Setor','Área','Local de instalação','TAG RFID','Situação','Justificativa NT','Nº de fotos','Observação','Registrado por','Data do registro','Hora do registro','Enviado para a base'];
+    const linhas=R.map(r=>{const a=BYID.get(r.id)||{},[d,h]=dt(r.ts);
+      return[r.usina||a.u||'',r.imob||a.imob||'',r.sub||a.sub||'0',a.den||'',a.inv||r.inv||'',a.setor||'',a.area||'',a.loc||'',r.nt?'':(r.tag||''),r.nt?'NT':'Com TAG',r.nt?mot(r.mot):'',(r.fotos||[]).length,r.obs||'',r.por||'',d,h,naBase(r)?'Sim':'Não']});
+    const us=[...new Set(R.map(r=>r.usina))].sort(),res=us.map(u=>{const X=R.filter(r=>r.usina===u),t=Math.max(...X.map(r=>r.ts||0)),[d,h]=dt(t);
+      return[u,X.length,X.filter(r=>!r.nt).length,X.filter(r=>r.nt).length,X.reduce((s,r)=>s+(r.fotos||[]).length,0),`${d} ${h}`]});
+    const tot=['TOTAL',...[1,2,3,4].map(i=>res.reduce((s,l)=>s+l[i],0)),''];
+    const filtros=[S.usina?'Usina '+S.usina:'Todas as usinas',S.d1||S.d2?`Período ${S.d1?S.d1.split('-').reverse().join('/'):'início'} a ${S.d2?S.d2.split('-').reverse().join('/'):'hoje'}`:'Todo o período',S.fnt?'Filtro de situação aplicado':''].filter(Boolean).join(' · ');
+    const [gd,gh]=dt(Date.now());
+    const blob=await xlsxBlob([
+      {nome:'Enviados',cab,linhas,filtro:true,larg:[7,12,7,42,14,26,30,32,10,10,24,10,30,20,13,11,14]},
+      {nome:'Resumo',cab:['Usina','Registros','Com TAG','NT','Fotos','Último registro'],linhas:[...res,tot,[],['Gerado em',`${gd} ${gh}`],['Gerado por',S.user||''],['Origem',modoServ()?'Servidor (toda a equipe)':'Este aparelho'],['Filtros',filtros]],total:false,larg:[14,12,12,8,10,18]}]);
+    const d=new Date(),nome=`relatorio_${S.usina||'TODAS'}_${d.getFullYear()}${p2(d.getMonth()+1)}${p2(d.getDate())}_${p2(d.getHours())}${p2(d.getMinutes())}.xlsx`;
+    S.exp='';const u=URL.createObjectURL(blob),l=document.createElement('a');l.href=u;l.download=nome;document.body.appendChild(l);l.click();l.remove();setTimeout(()=>URL.revokeObjectURL(u),60000);
+    render();toast(`Relatório ${nome}: ${R.length} registros.`)
+  }catch(e){S.exp='';render();toast(e instanceof Fora?'Entre de novo para gerar o relatório do servidor':'Não foi possível gerar o relatório: '+((e&&e.message)||'erro'))}
+}
 async function exportar(compartilhar){
   const sv=modoServ();if(sv){S.exp='Atualizando do servidor…';render();await sincronizar();S.exp=''}
   const R=pendentes();if(!R.length){render();return}
